@@ -239,6 +239,7 @@ const subStreams: Ref<Record<string, Array<subStream>>> = ref({})
 
 let pubMeet: Client
 let pubScreen: Client
+let sub: Client
 
 let settings = {
   room: roomID,
@@ -393,8 +394,19 @@ function createPub(
 }
 
 onMounted(async () => {
-  createSub(settings)
+  sub = createSub(settings)
   // settings.constraints = { audio: true, video: true }
   // pubMeet = createPub(settings)
+})
+onUnmounted(() => {
+  if (pubMeet) {
+    pubMeet.close()
+  }
+  if (pubScreen) {
+    pubScreen.close()
+  }
+  if (sub) {
+    sub.close()
+  }
 })
 </script>
