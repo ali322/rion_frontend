@@ -197,216 +197,226 @@
   </div>
 </template>
 <script lang="ts" setup>
-import { ref, Ref, onUnmounted, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import RemoteStream from '@/modules/RemoteStream.vue'
-import { LocalStream } from '@/sdk/stream'
-import { Client } from '@/sdk/client'
-import { Trasport } from '@/sdk/transport'
-import { baseURL } from '@/config/'
+  import { ref, Ref, onUnmounted, watch, onMounted } from 'vue'
+  import { useRoute } from 'vue-router'
+  import RemoteStream from '@/modules/RemoteStream.vue'
+  import { LocalStream } from '@/sdk/stream'
+  import { Client } from '@/sdk/client'
+  import { Trasport } from '@/sdk/transport'
+  import { baseURL } from '@/config/'
 
-const route = useRoute()
-let roomID = route.query.id!.toString()
-let nodeID = route.query.node!.toString()
-const localRef = ref()
-const screenRef = ref()
-const isScreenVideoEnabled = ref(true)
-const remoteRef = ref()
-const isVideoEnabled = ref(true)
-const isAudioEnabled = ref(true)
-const isRecord = ref(false)
+  const route = useRoute()
+  let roomID = route.query.id!.toString()
+  let nodeID = route.query.node!.toString()
+  const localRef = ref()
+  const screenRef = ref()
+  const isScreenVideoEnabled = ref(true)
+  const remoteRef = ref()
+  const isVideoEnabled = ref(true)
+  const isAudioEnabled = ref(true)
+  const isRecord = ref(false)
 
-const broadcastMsg = ref('')
-const incomeMsg: Ref<Array<Record<string, string>>> = ref([])
-const datachannelMsg = ref('')
-const incomeData: Ref<Array<Record<string, string>>> = ref([])
+  const broadcastMsg = ref('')
+  const incomeMsg: Ref<Array<Record<string, string>>> = ref([])
+  const datachannelMsg = ref('')
+  const incomeData: Ref<Array<Record<string, string>>> = ref([])
 
-const isMediaRecord = ref(false)
-const mediaRecords: Ref<Array<Record<string, any>>> = ref([])
-const isScreenRecord = ref(false)
-const screenRecords: Ref<Array<Record<string, any>>> = ref([])
+  const isMediaRecord = ref(false)
+  const mediaRecords: Ref<Array<Record<string, any>>> = ref([])
+  const isScreenRecord = ref(false)
+  const screenRecords: Ref<Array<Record<string, any>>> = ref([])
 
-interface subStream {
-  stream: MediaStream
-  track: MediaStreamTrack
-  id: string
-  full_id: string
-  app: string
-  event: RTCTrackEvent
-}
-
-const subStreams: Ref<Record<string, Array<subStream>>> = ref({})
-
-let pubMeet: Client
-let pubScreen: Client
-let sub: Client
-
-let settings = {
-  room: roomID,
-  id: nodeID,
-  token: '',
-  url: 'http://localhost:2008/api/v1',
-  constraints: null,
-  debug: true,
-}
-
-const sendDataChannel = () => {}
-const broadcast = () => {}
-const recordMedia = () => {}
-const recordScreen = () => {}
-
-let localMedia: LocalStream
-watch(isVideoEnabled, (isChecked: boolean) => {
-  if (isChecked) {
-    localMedia?.unmute('video')
-  } else {
-    localMedia?.mute('video')
+  interface subStream {
+    stream: MediaStream
+    track: MediaStreamTrack
+    id: string
+    full_id: string
+    app: string
+    event: RTCTrackEvent
   }
-})
-watch(isAudioEnabled, (isChecked: boolean) => {
-  if (isChecked) {
-    localMedia?.unmute('audio')
-  } else {
-    localMedia?.mute('audio')
-  }
-})
 
-const startMeet = async () => {
-  const media = await LocalStream.getUserMedia({
-    resolution: 'hd',
-    // @ts-ignore
-    codec: 'vp8',
-    audio: true,
-  })
-  localMedia = media
-  localRef.value.srcObject = media
-  localRef.value.autoplay = true
-  localRef.value.controls = true
-  localRef.value.id = media.id
-  localRef.value.muted = true
-  console.log('localmedia', media.id)
-  pubMeet = createPub(settings)
-  pubMeet.publish(media)
-}
-let localScreen: LocalStream
-watch(isScreenVideoEnabled, (isChecked: boolean) => {
-  if (isChecked) {
-    localScreen?.unmute('video')
-  } else {
-    localScreen?.mute('video')
-  }
-})
-const startScreen = async () => {
-  const media = await LocalStream.getDisplayMedia({
-    // @ts-ignore
-    resolution: 'hd',
-    codec: 'vp8',
-    // audio: true,
-  })
-  console.log('localScreen', media.id)
-  localScreen = media
-  screenRef.value.srcObject = media
-  screenRef.value.autoplay = true
-  screenRef.value.controls = true
-  screenRef.value.id = media.id
-  screenRef.value.muted = true
-  media.getTracks().forEach((t: MediaStreamTrack) => {
-    t.onended = function () {
-      console.log(`${t.kind} of media stream has ended`)
-    }
-    // signalLocal?.call("publishTrack", {
-    //   id: t.id,
-    //   nodeID,
-    //   streamID: media.id,
-    //   kind: t.kind,
-    //   flag: "123",
-    // });
-  })
-  // settings.id += '-screen'
-  pubScreen = createPub(Object.assign({}, settings, { id: `${nodeID}-screen` }))
-  pubScreen.publish(media)
-}
+  const subStreams: Ref<Record<string, Array<subStream>>> = ref({})
 
-function createSub({ url, room, id, token, debug, constraints }) {
-  let client = new Client({
-    url,
-    role: 'sub',
-    room,
-    id,
-    token,
-    debug,
-  })
-  client.onSubStream = (
-    stream: MediaStream,
-    track: MediaStreamTrack,
-    id: string,
-    full_id: string,
-    app: string,
-    event: RTCTrackEvent,
-  ) => {
-    console.log('on sub stream', stream, track, id, full_id)
-    if (subStreams[full_id]) {
-      subStreams.value[full_id].push({ stream, track, id, full_id, app, event })
+  let pubMeet: Client
+  let pubScreen: Client
+  let sub: Client
+
+  let settings = {
+    room: roomID,
+    id: nodeID,
+    token: '',
+    url: 'http://localhost:2008/api/v1',
+    constraints: null,
+    debug: true,
+  }
+
+  const sendDataChannel = () => {}
+  const broadcast = () => {}
+  const recordMedia = () => {}
+  const recordScreen = () => {}
+
+  let localMedia: LocalStream
+  watch(isVideoEnabled, (isChecked: boolean) => {
+    if (isChecked) {
+      localMedia?.unmute('video')
     } else {
-      subStreams.value[full_id] = [{ stream, track, id, full_id, app, event }]
+      localMedia?.mute('video')
     }
-    console.log('sub streams', subStreams)
-    // subStreams.value.push({ stream, track, id, full_id, app, event })
-    // bindStream(id, track, stream)
-  }
-  client.onPubJoin = (id, full_id, app) => {
-    let suffix = app == 'screen' ? "'s screen" : ''
-    console.log(`============== Publisher ${id}${suffix} Joined.`)
-    // nodes.value[msg.data.node] = { id: msg.data.node, streams: [] }
-  }
-  client.onPubLeft = (id, full_id, app) => {
-    let suffix = app == 'screen' ? "'s screen" : ''
-    console.log(`========= Publisher ${id}${suffix} Left.`)
-    delete subStreams.value[full_id]
-  }
-  client.onError = (error) => {
-    console.error('sub error', error)
-  }
-  client.subscribe()
-  return client
-}
-
-function createPub(
-  { url, room, id, token, debug, constraints },
-  screen = false,
-) {
-  let client = new Client({
-    url,
-    room,
-    role: 'pub',
-    id,
-    token,
-    debug,
   })
-  client.onPubStream = (stream, id, full_id, app) => {
-    console.log('on pub stream', stream, id, full_id)
-  }
-  client.onError = (error) => {
-    console.error('pub error', error)
-  }
-  // client.publish(constraints)
-  return client
-}
+  watch(isAudioEnabled, (isChecked: boolean) => {
+    if (isChecked) {
+      localMedia?.unmute('audio')
+    } else {
+      localMedia?.mute('audio')
+    }
+  })
 
-onMounted(async () => {
-  sub = createSub(settings)
-  // settings.constraints = { audio: true, video: true }
-  // pubMeet = createPub(settings)
-})
-onUnmounted(() => {
-  if (pubMeet) {
-    pubMeet.close()
+  const startMeet = async () => {
+    const media = await LocalStream.getUserMedia({
+      resolution: 'hd',
+      // @ts-ignore
+      codec: 'vp8',
+      audio: true,
+      // video: false,
+    })
+    localMedia = media
+    localRef.value.srcObject = media
+    localRef.value.autoplay = true
+    localRef.value.controls = true
+    localRef.value.id = media.id
+    localRef.value.muted = true
+    console.log('localmedia', media.id)
+    pubMeet = createPub(settings)
+    pubMeet.publish(media)
   }
-  if (pubScreen) {
-    pubScreen.close()
+  let localScreen: LocalStream
+  watch(isScreenVideoEnabled, (isChecked: boolean) => {
+    if (isChecked) {
+      localScreen?.unmute('video')
+    } else {
+      localScreen?.mute('video')
+    }
+  })
+  const startScreen = async () => {
+    const media = await LocalStream.getDisplayMedia({
+      // @ts-ignore
+      resolution: 'hd',
+      codec: 'vp8',
+      // audio: true,
+    })
+    console.log('localScreen', media.id)
+    localScreen = media
+    screenRef.value.srcObject = media
+    screenRef.value.autoplay = true
+    screenRef.value.controls = true
+    screenRef.value.id = media.id
+    screenRef.value.muted = true
+    media.getTracks().forEach((t: MediaStreamTrack) => {
+      t.onended = function () {
+        console.log(`${t.kind} of media stream has ended`)
+      }
+      // signalLocal?.call("publishTrack", {
+      //   id: t.id,
+      //   nodeID,
+      //   streamID: media.id,
+      //   kind: t.kind,
+      //   flag: "123",
+      // });
+    })
+    // settings.id += '-screen'
+    pubScreen = createPub(
+      Object.assign({}, settings, { id: `${nodeID}-screen` })
+    )
+    pubScreen.publish(media)
   }
-  if (sub) {
-    sub.close()
+
+  function createSub({ url, room, id, token, debug, constraints }) {
+    let client = new Client({
+      url,
+      role: 'sub',
+      room,
+      id,
+      token,
+      debug,
+    })
+    client.onSubStream = (
+      stream: MediaStream,
+      track: MediaStreamTrack,
+      id: string,
+      full_id: string,
+      app: string,
+      event: RTCTrackEvent
+    ) => {
+      console.log('on sub stream', stream, track, id, full_id)
+      if (subStreams[full_id]) {
+        subStreams.value[full_id].push({
+          stream,
+          track,
+          id,
+          full_id,
+          app,
+          event,
+        })
+      } else {
+        subStreams.value[full_id] = [{ stream, track, id, full_id, app, event }]
+      }
+      console.log('sub streams', subStreams)
+      // subStreams.value.push({ stream, track, id, full_id, app, event })
+      // bindStream(id, track, stream)
+    }
+    client.onPubJoin = (id, full_id, app) => {
+      let suffix = app == 'screen' ? "'s screen" : ''
+      console.log(`============== Publisher ${id}${suffix} Joined.`)
+      // nodes.value[msg.data.node] = { id: msg.data.node, streams: [] }
+    }
+    client.onPubLeft = (id, full_id, app) => {
+      let suffix = app == 'screen' ? "'s screen" : ''
+      console.log(`========= Publisher ${id}${suffix} Left.`)
+      delete subStreams.value[full_id]
+    }
+    client.onError = (error) => {
+      console.error('sub error', error)
+    }
+    client.subscribe()
+    return client
   }
-})
+
+  function createPub(
+    { url, room, id, token, debug, constraints },
+    screen = false
+  ) {
+    let client = new Client({
+      url,
+      room,
+      role: 'pub',
+      id,
+      token,
+      debug,
+    })
+    client.onPubStream = (stream, id, full_id, app) => {
+      console.log('on pub stream', stream, id, full_id)
+    }
+    client.onError = (error) => {
+      console.error('pub error', error)
+    }
+    // client.publish(constraints)
+    return client
+  }
+
+  onMounted(async () => {
+    sub = createSub(settings)
+    // settings.constraints = { audio: true, video: true }
+    // pubMeet = createPub(settings)
+  })
+  onUnmounted(() => {
+    if (pubMeet) {
+      pubMeet.close()
+    }
+    if (pubScreen) {
+      pubScreen.close()
+    }
+    if (sub) {
+      sub.close()
+    }
+  })
 </script>
